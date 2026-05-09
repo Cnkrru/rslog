@@ -34,24 +34,20 @@ static LOGGER: OnceLock<Arc<Logger>> = OnceLock::new();
 impl Logger {
     /// Get the singleton logger instance
     /// 
-    /// Uses `Once` to ensure only one initialization occurs, thread-safe.
+    /// Uses `OnceLock` to ensure only one initialization occurs, thread-safe.
     /// 
     /// # Returns
     /// 
     /// The global unique logger instance.
     pub fn get_instance() -> Arc<Self> {
-        unsafe {
-            INIT_ONCE.call_once(|| {
-                let config = Config::default();
-                let writer = Arc::new(Writer::new(config.clone()));
-                let logger = Logger {
-                    level: Mutex::new(config.level),
-                    writer,
-                };
-                LOGGER = Some(Arc::new(logger));
-            });
-            LOGGER.as_ref().unwrap().clone()
-        }
+        LOGGER.get_or_init(|| {
+            let config = Config::default();
+            let writer = Arc::new(Writer::new(config.clone()));
+            Arc::new(Logger {
+                level: Mutex::new(config.level),
+                writer,
+            })
+        }).clone()
     }
 
     /// Initialize logger with custom configuration
@@ -76,16 +72,13 @@ impl Logger {
     /// let logger = Logger::get_instance();
     /// ```
     pub fn init_with_config(config: Config) {
-        unsafe {
-            INIT_ONCE.call_once(|| {
-                let writer = Arc::new(Writer::new(config.clone()));
-                let logger = Logger {
-                    level: Mutex::new(config.level),
-                    writer,
-                };
-                LOGGER = Some(Arc::new(logger));
-            });
-        }
+        LOGGER.get_or_init(|| {
+            let writer = Arc::new(Writer::new(config.clone()));
+            Arc::new(Logger {
+                level: Mutex::new(config.level),
+                writer,
+            })
+        });
     }
 
     /// Set the log level

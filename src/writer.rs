@@ -8,7 +8,7 @@ use std::path::{PathBuf};
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{SystemTime, UNIX_EPOCH, Duration};
+use std::time::Duration;
 
 use crate::config::Config;
 use crate::formatter::{Formatter, OutputFormat};
@@ -138,7 +138,7 @@ impl Writer {
             format => Formatter::with_format(format.clone()),
         };
 
-        let mut color_formatter = ColorFormatter::with_scheme(config.color_scheme.clone());
+        let color_formatter = ColorFormatter::with_scheme(config.color_scheme.clone());
         color_formatter.set_enabled(config.console_colors);
 
         Writer {
