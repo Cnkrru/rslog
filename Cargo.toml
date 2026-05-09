@@ -8,7 +8,7 @@ readme = "README.md"
 repository = "https://github.com/Cnkrru/rslog"
 documentation = "https://docs.rs/rslog"
 keywords = ["logging", "log", "logger", "simple", "zero-dependency"]
-categories = ["development-tools::debugging", "logging"]
-authors = ["Cnkrru <3253884026@qq.com>"]
+categories = ["development-tools::debugging"]
+authors = ["Cnkrru <J19323850@gmail.com>"]
 
 [dependencies]
