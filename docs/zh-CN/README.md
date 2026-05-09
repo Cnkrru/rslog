@@ -224,4 +224,4 @@ MIT 许可证
 
 ## 英文文档
 
-查看英文文档：[../README.md](../README.md)
+查看英文文档：[../../README.md](../../README.md)

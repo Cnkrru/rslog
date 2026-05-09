@@ -3,8 +3,8 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   // 站点head基础配置
   lang: 'zh-CN',
-  title: "Cnkrru'Obsidian",
-  description: "个人知识管理系统",
+  title: "rslog - 轻量级Rust日志库",
+  description: "一个完全使用标准库构建的零依赖轻量级Rust日志库",
   // 禁用死链检查
   ignoreDeadLinks: true,
   // 构建输出目录
@@ -15,21 +15,29 @@ export default defineConfig({
     
     // logo以及标题
     logo: '/logo.png',
-    siteTitle: 'Cnkrru\'Obsidian',
+    siteTitle: 'rslog - Rust日志库',
 
     // 页眉导航栏
     nav: [
       { text: '首页', link: '/' },
-      { text: '文档', link: '/docs/' },
+      { text: '中文文档', link: '/zh-CN/' },
+      { text: '英文文档', link: '/README.md' },
+      { text: 'GitHub', link: 'https://github.com/Cnkrru/rslog' },
     ],
 
     // 侧边栏导航栏
-    sidebar: [
-      { text: '首页', link: '/' },
-      { text: '简介',link: '/docs/zh-CN/index.md' },
-      { text: 'API',link: '/docs/zh-CN/API_GUIDE.md' },
-      { text: 'README',link: '/docs/README.md' },
-    ],
+    sidebar: {
+      '/zh-CN/': [
+        { text: '中文文档首页', link: '/zh-CN/' },
+        { text: '快速开始', link: '/zh-CN/README.md' },
+        { text: 'API使用指南', link: '/zh-CN/API_GUIDE.md' },
+        { text: '文档索引', link: '/zh-CN/INDEX.md' },
+      ],
+      '/': [
+        { text: '首页', link: '/' },
+        { text: '英文文档', link: '/README.md' },
+      ]
+    },
 
     // 侧边栏位置
     aside: 'right',
@@ -44,14 +52,14 @@ export default defineConfig({
 
     // 页脚信息
     footer: {
-      message: '基于 VitePress 构建的个人知识库站点',
-      copyright: '© 2026 cnkrru 的知识库'
+      message: '基于 VitePress 构建的 rslog 文档站点',
+      copyright: '© 2026 Cnkrru | rslog - 轻量级Rust日志库'
     },
 
     // 编辑链接
     editLink: {
-      pattern: 'https://github.com/vuejs/vitepress/edit/main/docs/:path',
-      text: 'Edit this page on GitHub'
+      pattern: 'https://github.com/Cnkrru/rslog/edit/main/docs/:path',
+      text: '在GitHub上编辑此页面'
     },
 
     // 最后更新时间
@@ -63,56 +71,28 @@ export default defineConfig({
       }
     },
 
-    // Algolia 搜索配置
-    algolia: {
-      appId: 'your-algolia-app-id',
-      apiKey: 'your-algolia-api-key',
-      indexName: 'your-algolia-index-name',
-      placeholder: 'Search',
-      translations: {
-        button: {
-          buttonText: '搜索',
-          buttonAriaLabel: '搜索'
-        },
-        modal: {
-          searchBox: {
-            resetButtonTitle: '清除查询',
-            resetButtonAriaLabel: '清除查询',
-            cancelButtonText: '取消',
-            cancelButtonAriaLabel: '取消'
-          },
-          startScreen: {
-            recentSearchesTitle: '最近搜索',
-            noRecentSearchesText: '没有最近搜索',
-            saveRecentSearchButtonTitle: '保存搜索',
-            removeRecentSearchButtonTitle: '从历史中删除',
-            favoriteSearchesTitle: '收藏',
-            removeFavoriteSearchButtonTitle: '从收藏中删除'
-          },
-          errorScreen: {
-            titleText: '无法获取结果',
-            helpText: '你可能需要检查你的网络连接'
-          },
-          footer: {
-            selectText: '选择',
-            selectKeyAriaLabel: '回车键',
-            navigateText: '导航',
-            navigateUpKeyAriaLabel: '上箭头',
-            navigateDownKeyAriaLabel: '下箭头',
-            closeText: '关闭',
-            closeKeyAriaLabel: 'Esc键',
-            searchByText: '搜索提供'
-          },
-          noResultsScreen: {
-            noResultsText: '没有找到相关结果',
-            suggestedQueryText: '你可以尝试查询',
-            reportMissingResultsText: '你认为这个查询应该有结果吗？',
-            reportMissingResultsLinkText: '点击反馈'
+    // 本地搜索配置（替代Algolia）
+    search: {
+      provider: 'local',
+      options: {
+        locales: {
+          'zh-CN': {
+            translations: {
+              button: {
+                buttonText: '搜索文档',
+                buttonAriaLabel: '搜索文档'
+              },
+              modal: {
+                noResultsText: '没有找到相关结果',
+                resetButtonTitle: '清除查询',
+                footer: {
+                  selectText: '选择',
+                  navigateText: '切换'
+                }
+              }
+            }
           }
         }
-      },
-      searchParameters: {
-        facetFilters: ['tags:cnkrru']
       }
     },
 

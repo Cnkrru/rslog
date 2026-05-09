@@ -256,6 +256,6 @@ fn process_data(data: &str) -> Result<(), Box<dyn std::error::Error>> {
 ## 更多资源
 
 - [GitHub仓库](https://github.com/Cnkrru/rslog)
-- [英文文档](../README.md)
+- [英文文档](../../README.md)
 - [在线API文档](https://docs.rs/rslog)
-- [示例代码](../examples/)
+- [示例代码](../../examples/)
