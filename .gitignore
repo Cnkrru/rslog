@@ -20,3 +20,6 @@ Thumbs.db
 
 # Documentation
 doc/
+
+# Generated documentation by cargo doc
+# Note: docs/ directory contains manual documentation, so it's NOT ignored

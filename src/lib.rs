@@ -67,6 +67,7 @@ pub mod writer;
 pub mod logger;
 pub mod config;
 pub mod rotator;
+pub mod color;
 
 pub use level::LogLevel;
 pub use logger::Logger;
@@ -75,3 +76,4 @@ pub use config::ConfigBuilder;
 pub use formatter::OutputFormat;
 pub use rotator::{RotationStrategy, RotatorConfig};
 pub use writer::{AsyncWriterConfig, LogEntry};
+pub use color::{Color, LogColorScheme, ColorFormatter};

@@ -2,7 +2,7 @@
 //! 
 //! Provides the core logger implementation with singleton pattern and logging methods.
 
-use std::sync::{Once, Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use crate::config::Config;
 use crate::level::LogLevel;
@@ -29,8 +29,7 @@ pub struct Logger {
     writer: Arc<Writer>,
 }
 
-static mut LOGGER: Option<Arc<Logger>> = None;
-static INIT_ONCE: Once = Once::new();
+static LOGGER: OnceLock<Arc<Logger>> = OnceLock::new();
 
 impl Logger {
     /// Get the singleton logger instance
@@ -129,6 +128,15 @@ impl Logger {
     /// * `enabled` - true to enable, false to disable
     pub fn set_console_enabled(&self, enabled: bool) {
         self.writer.set_console_enabled(enabled);
+    }
+
+    /// Set whether console colors are enabled
+    /// 
+    /// # Parameters
+    /// 
+    /// * `enabled` - true to enable colors, false to disable
+    pub fn set_console_colors(&self, enabled: bool) {
+        self.writer.set_console_colors(enabled);
     }
 
     /// Log a debug message

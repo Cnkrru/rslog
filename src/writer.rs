@@ -12,6 +12,7 @@ use std::time::{SystemTime, UNIX_EPOCH, Duration};
 
 use crate::config::Config;
 use crate::formatter::{Formatter, OutputFormat};
+use crate::color::ColorFormatter;
 
 /// Log entry
 /// 
@@ -80,64 +81,7 @@ impl Default for AsyncWriterConfig {
 /// 
 /// Format: `YYYY-MM-DD HH:MM:SS.NNNNNNNNN`
 fn get_timestamp() -> String {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default();
-
-    let total_seconds = now.as_secs();
-    let nanoseconds = now.subsec_nanos();
-
-    let minutes = total_seconds / 60;
-    let seconds = total_seconds % 60;
-    let hours = minutes / 60;
-    let minutes = minutes % 60;
-    let days = hours / 24;
-    let hours = hours % 24;
-
-    let (year, month, day) = unix_days_to_date(days);
-    format!(
-        "{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:09}",
-        year, month, day, hours, minutes, seconds, nanoseconds
-    )
-}
-
-/// Convert Unix days to date
-fn unix_days_to_date(mut days: u64) -> (u64, u64, u64) {
-    let mut year = 1970;
-    let mut month = 1;
-    let mut day = 1;
-
-    let days_in_month = |y: u64, m: u64| -> u64 {
-        match m {
-            1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-            4 | 6 | 9 | 11 => 30,
-            2 => {
-                if y.is_multiple_of(4) && (!y.is_multiple_of(100) || y.is_multiple_of(400)) {
-                    29
-                } else {
-                    28
-                }
-            }
-            _ => 0,
-        }
-    };
-
-    while days > 0 {
-        let dim = days_in_month(year, month);
-        if days >= dim {
-            days -= dim;
-            month += 1;
-            if month > 12 {
-                month = 1;
-                year += 1;
-            }
-        } else {
-            day += days;
-            days = 0;
-        }
-    }
-
-    (year, month, day)
+    crate::formatter::Formatter::get_timestamp()
 }
 
 /// Log writer
@@ -164,6 +108,7 @@ pub struct Writer {
     sender: Sender<LogEntry>,
     is_running: Arc<Mutex<bool>>,
     formatter: Formatter,
+    color_formatter: ColorFormatter,
     config: Config,
     console_enabled: Mutex<bool>,
 }
@@ -193,10 +138,14 @@ impl Writer {
             format => Formatter::with_format(format.clone()),
         };
 
+        let mut color_formatter = ColorFormatter::with_scheme(config.color_scheme.clone());
+        color_formatter.set_enabled(config.console_colors);
+
         Writer {
             sender,
             is_running,
             formatter,
+            color_formatter,
             config,
             console_enabled: Mutex::new(console_enabled),
         }
@@ -281,11 +230,20 @@ impl Writer {
     /// * `message` - Log message
     pub fn write(&self, level: crate::level::LogLevel, message: &str) {
         let timestamp = get_timestamp();
-        let log_line = self.formatter.format(level, message);
+        
+        // For file output: plain text without colors
+        let file_log_line = self.formatter.format(level, message);
+        
+        // For console output: with colors if enabled
+        let console_log_line = if *self.console_enabled.lock().unwrap() {
+            self.color_formatter.format(&timestamp, level, message, true)
+        } else {
+            file_log_line.clone()
+        };
 
         if *self.console_enabled.lock().unwrap() {
             let mut stdout = io::stdout();
-            let _ = writeln!(stdout, "{}", log_line);
+            let _ = writeln!(stdout, "{}", console_log_line);
         }
 
         let entry = LogEntry::new(&level.to_string(), message, &timestamp);
@@ -299,6 +257,15 @@ impl Writer {
     /// * `enabled` - true to enable, false to disable
     pub fn set_console_enabled(&self, enabled: bool) {
         *self.console_enabled.lock().unwrap() = enabled;
+    }
+
+    /// Set whether console colors are enabled
+    /// 
+    /// # Parameters
+    /// 
+    /// * `enabled` - true to enable colors, false to disable
+    pub fn set_console_colors(&self, enabled: bool) {
+        self.color_formatter.set_enabled(enabled);
     }
 
     /// Get current configuration

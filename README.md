@@ -124,6 +124,8 @@ let config = ConfigBuilder::new()
 | `level` | LogLevel | `Debug` | Minimum log level |
 | `output_format` | OutputFormat | `Text` | Output format |
 | `rotation` | Option\<RotatorConfig\> | Default | Log rotation config |
+| `console_colors` | bool | `true` | Enable ANSI colors in console output |
+| `color_scheme` | LogColorScheme | Default | Color scheme for log levels |
 
 ## Log Levels
 
@@ -135,12 +137,97 @@ let config = ConfigBuilder::new()
 | `Error` | 4 | Recoverable errors |
 | `Critical` | 5 | Unrecoverable errors |
 
+## Color Support
+
+rslog supports ANSI color codes for console output, making log levels easily distinguishable.
+
+### Default Color Scheme
+
+| Log Level | Default Color | ANSI Code |
+|-----------|---------------|-----------|
+| `Debug` | Cyan | `\x1b[36m` |
+| `Info` | Green | `\x1b[32m` |
+| `Warn` | Yellow | `\x1b[33m` |
+| `Error` | Red | `\x1b[31m` |
+| `Critical` | Bright Red | `\x1b[91m` |
+
+### Custom Color Configuration
+
+```rust
+use rslog::{ConfigBuilder, LogColorScheme, Color};
+
+// Create a custom color scheme
+let custom_scheme = LogColorScheme::new(
+    Color::BrightCyan,    // Debug
+    Color::BrightGreen,   // Info
+    Color::BrightYellow,  // Warn
+    Color::BrightRed,     // Error
+    Color::Magenta,       // Critical
+);
+
+let config = ConfigBuilder::new()
+    .color_scheme(custom_scheme)
+    .console_colors(true)  // Enable colors
+    .build();
+```
+
+### Available Colors
+
+```rust
+use rslog::Color;
+
+// Basic colors
+Color::Black
+Color::Red
+Color::Green
+Color::Yellow
+Color::Blue
+Color::Magenta
+Color::Cyan
+Color::White
+
+// Bright colors
+Color::BrightBlack
+Color::BrightRed
+Color::BrightGreen
+Color::BrightYellow
+Color::BrightBlue
+Color::BrightMagenta
+Color::BrightCyan
+Color::BrightWhite
+```
+
+### Runtime Color Control
+
+```rust
+use rslog::Logger;
+
+let logger = Logger::get_instance();
+
+// Enable/disable colors at runtime
+logger.set_console_colors(true);   // Enable colors
+logger.set_console_colors(false);  // Disable colors
+```
+
+### Notes
+
+- Colors are only applied to console output, not to file output
+- Colors can be disabled globally via configuration
+- Color support is automatically detected (basic terminal detection)
+- Use `logger.set_console_colors(false)` for non-terminal environments
+
 ## Examples
 
-Run the example:
+Run the basic example:
 
 ```bash
 cargo run --example test
+```
+
+Run the color example:
+
+```bash
+cargo run --example color_test
 ```
 
 ## Documentation
@@ -158,3 +245,7 @@ MIT License
 ## Contributing
 
 Contributions are welcome! Please feel free to submit issues and pull requests.
+
+## 中文文档
+
+查看中文文档：[docs/zh-CN/README.md](docs/zh-CN/README.md)

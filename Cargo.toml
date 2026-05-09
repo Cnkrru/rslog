@@ -1,6 +1,6 @@
 [package]
 name = "rslog"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "A lightweight logging library for Rust built entirely using the standard library with zero external dependencies."
 license = "MIT"
@@ -10,5 +10,12 @@ documentation = "https://docs.rs/rslog"
 keywords = ["logging", "log", "logger", "simple", "zero-dependency"]
 categories = ["development-tools::debugging"]
 authors = ["Cnkrru <J19323850@gmail.com>"]
+
+# Documentation configuration
+[package.metadata.docs.rs]
+# Features to enable when building documentation
+all-features = true
+# Rustdoc flags
+rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]

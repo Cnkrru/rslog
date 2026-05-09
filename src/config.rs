@@ -5,6 +5,7 @@
 use crate::formatter::OutputFormat;
 use crate::level::LogLevel;
 use crate::rotator::RotatorConfig;
+use crate::color::LogColorScheme;
 
 /// Logging library configuration structure
 /// 
@@ -25,6 +26,8 @@ use crate::rotator::RotatorConfig;
 ///     level: LogLevel::Info,
 ///     output_format: OutputFormat::Text,
 ///     rotation: None,
+///     console_colors: true,
+///     color_scheme: LogColorScheme::default(),
 /// };
 /// ```
 #[derive(Debug, Clone)]
@@ -43,6 +46,10 @@ pub struct Config {
     pub output_format: OutputFormat,
     /// Log rotation configuration (None disables rotation)
     pub rotation: Option<RotatorConfig>,
+    /// Whether to use colors in console output
+    pub console_colors: bool,
+    /// Color scheme for console output
+    pub color_scheme: LogColorScheme,
 }
 
 impl Default for Config {
@@ -67,6 +74,8 @@ impl Default for Config {
             level: LogLevel::Debug,
             output_format: OutputFormat::Text,
             rotation: Some(RotatorConfig::default()),
+            console_colors: true,
+            color_scheme: LogColorScheme::default(),
         }
     }
 }
@@ -143,6 +152,8 @@ pub struct ConfigBuilder {
     level: Option<LogLevel>,
     output_format: Option<OutputFormat>,
     rotation: Option<RotatorConfig>,
+    console_colors: Option<bool>,
+    color_scheme: Option<LogColorScheme>,
 }
 
 impl ConfigBuilder {
@@ -156,6 +167,8 @@ impl ConfigBuilder {
             level: None,
             output_format: None,
             rotation: None,
+            console_colors: None,
+            color_scheme: None,
         }
     }
 
@@ -241,6 +254,26 @@ impl ConfigBuilder {
         self
     }
 
+    /// Enable or disable console colors
+    /// 
+    /// # Parameters
+    /// 
+    /// * `enabled` - true to enable colors, false to disable
+    pub fn console_colors(mut self, enabled: bool) -> Self {
+        self.console_colors = Some(enabled);
+        self
+    }
+
+    /// Set custom color scheme
+    /// 
+    /// # Parameters
+    /// 
+    /// * `scheme` - Color scheme
+    pub fn color_scheme(mut self, scheme: LogColorScheme) -> Self {
+        self.color_scheme = Some(scheme);
+        self
+    }
+
     /// Build the final configuration
     /// 
     /// Returns a complete [`Config`] instance.
@@ -253,6 +286,8 @@ impl ConfigBuilder {
             level: self.level.unwrap_or(LogLevel::Debug),
             output_format: self.output_format.unwrap_or(OutputFormat::Text),
             rotation: self.rotation.or_else(|| Some(RotatorConfig::default())),
+            console_colors: self.console_colors.unwrap_or(true),
+            color_scheme: self.color_scheme.unwrap_or_default(),
         }
     }
 }
