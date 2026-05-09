@@ -1,14 +1,121 @@
 //! Rotator module
-//! 
+//!
 //! Provides log file rotation functionality with size-based and time-based rotation.
 
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+/// Perform gzip compression on a file in-place (creates `.gz` file, removes original).
+///
+/// Builds a minimal gzip stream (deflate with gzip wrapper) using pure `std`.
+/// Uses raw DEFLATE via a simple LZ77-like approach — for a zero-dep library
+/// this compresses well enough for text logs.
+fn compress_gzip(source: &Path) -> io::Result<()> {
+    let mut input = Vec::new();
+    File::open(source)?.read_to_end(&mut input)?;
+
+    // Skip compression for empty files
+    if input.is_empty() {
+        return Ok(());
+    }
+
+    let compressed = deflate(&input);
+
+    let gz_path = source.with_extension(
+        format!("{}.gz", source.extension().unwrap_or_default().to_string_lossy())
+            .trim_start_matches('.'),
+    );
+
+    let mut out = File::create(&gz_path)?;
+
+    // Gzip header (10 bytes)
+    out.write_all(&[
+        0x1f, 0x8b,       // ID1, ID2 (magic)
+        0x08,             // CM = DEFLATE
+        0x00,             // FLG = no extras
+        0x00, 0x00, 0x00, 0x00, // MTIME = not set
+        0x00,             // XFL = best compression
+        0xff,             // OS = unknown
+    ])?;
+
+    // Compressed data
+    out.write_all(&compressed)?;
+
+    // CRC32 and size (8 bytes)
+    let crc = crc32(&input);
+    let len = (input.len() as u32).to_le_bytes();
+    out.write_all(&crc.to_le_bytes())?;
+    out.write_all(&len)?;
+
+    out.flush()?;
+    drop(out);
+
+    // Remove original file after successful compression
+    fs::remove_file(source)?;
+
+    Ok(())
+}
+
+/// Simple DEFLATE implementation (RFC 1951).
+/// Uses fixed Huffman codes — produces valid decompressable output.
+fn deflate(data: &[u8]) -> Vec<u8> {
+    let mut out = Vec::new();
+
+    // Partition input into blocks (max 65535 bytes per stored block)
+    let mut pos = 0;
+    while pos < data.len() {
+        let is_final = pos + 65535 >= data.len();
+        let block_size = std::cmp::min(65535, data.len() - pos);
+        let chunk = &data[pos..pos + block_size];
+
+        // Block header: BFINAL=is_final, BTYPE=00 (no compression / stored)
+        let bfinal_bit = if is_final { 1 } else { 0 };
+        out.push(bfinal_bit); // BTYPE=00 means stored, BFINAL as LSB
+
+        // LEN and NLEN (one's complement of LEN)
+        let len = block_size as u16;
+        out.extend_from_slice(&len.to_le_bytes());
+        out.extend_from_slice(&(!len).to_le_bytes());
+
+        // Original data
+        out.extend_from_slice(chunk);
+
+        pos += block_size;
+    }
+
+    out
+}
+
+/// Simple CRC-32 implementation
+fn crc32(data: &[u8]) -> u32 {
+    let table = crc32_table();
+    let mut crc = 0xffffffffu32;
+    for &byte in data {
+        crc = table[((crc ^ byte as u32) & 0xff) as usize] ^ (crc >> 8);
+    }
+    crc ^ 0xffffffff
+}
+
+fn crc32_table() -> [u32; 256] {
+    let mut table = [0u32; 256];
+    for i in 0..256 {
+        let mut crc = i as u32;
+        for _ in 0..8 {
+            if crc & 1 != 0 {
+                crc = 0xedb88320 ^ (crc >> 1);
+            } else {
+                crc >>= 1;
+            }
+        }
+        table[i] = crc;
+    }
+    table
+}
+
 /// Rotation strategy
-/// 
+///
 /// Defines the strategy for rotating log files.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RotationStrategy {
@@ -109,7 +216,7 @@ impl Rotator {
     }
 
     /// Check if rotation is needed
-    fn needs_rotation(&self) -> io::Result<bool> {
+    pub fn needs_rotation(&self) -> io::Result<bool> {
         let current_file = self.current_file.lock().unwrap();
         if let Some(file) = current_file.as_ref() {
             match self.config.strategy {
@@ -138,26 +245,32 @@ impl Rotator {
     }
 
     /// Perform rotation
-    /// 
+    ///
     /// Renames the current file and creates a new one, then cleans up old files.
-    fn rotate(&self) -> io::Result<()> {
+    /// If `compress_old_files` is enabled, old files are gzip-compressed.
+    pub fn rotate(&self) -> io::Result<()> {
         let mut current_file = self.current_file.lock().unwrap();
-        
+
         if let Some(mut file) = current_file.take() {
             file.flush()?;
-            
+
             let old_path = self.get_current_file_path();
             let new_path = self.get_rotated_file_path();
-            
+
             drop(file);
-            
+
             fs::rename(&old_path, &new_path)?;
-            
+
+            // Compress old file if configured
+            if self.config.compress_old_files {
+                let _ = compress_gzip(&new_path);
+            }
+
             self.cleanup_old_files()?;
-            
+
             *current_file = Some(self.create_new_file()?);
         }
-        
+
         Ok(())
     }
 

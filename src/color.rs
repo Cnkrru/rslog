@@ -160,17 +160,36 @@ impl Color {
     }
 
     /// Check if colors are supported (basic check for terminal support)
-    /// 
+    ///
+    /// Checks:
+    /// 1. `NO_COLOR` environment variable (https://no-color.org)
+    /// 2. `TERM` environment variable (e.g. "dumb" means no color)
+    /// 3. `WT_SESSION` for Windows Terminal detection
+    ///
     /// # Returns
-    /// 
+    ///
     /// true if colors are likely supported
-    /// 
-    /// Note: This is a simple check that assumes colors are supported.
-    /// In practice, you should check environment variables like TERM,
-    /// NO_COLOR, or use a library like atty for more accurate detection.
     pub fn is_supported() -> bool {
-        // Simple check - assume colors are supported
-        // Users can disable colors via configuration if needed
+        // Respect NO_COLOR standard (https://no-color.org)
+        if std::env::var_os("NO_COLOR").is_some() {
+            return false;
+        }
+
+        // Check TERM — "dumb" terminals don't support color
+        if let Some(term) = std::env::var_os("TERM") {
+            let term = term.to_string_lossy();
+            if term.eq_ignore_ascii_case("dumb") {
+                return false;
+            }
+        }
+
+        // On Windows, assume color is supported via Virtual Terminal Processing
+        // (enabled since Windows 10 1511). WT_SESSION indicates Windows Terminal.
+        if cfg!(windows) {
+            return std::env::var_os("WT_SESSION").is_some()
+                || std::env::var_os("TERM_PROGRAM").is_some();
+        }
+
         true
     }
 }
@@ -178,6 +197,8 @@ impl Color {
 /// Color scheme for log levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LogColorScheme {
+    /// Color for trace level
+    pub trace: Color,
     /// Color for debug level
     pub debug: Color,
     /// Color for info level
@@ -192,7 +213,8 @@ pub struct LogColorScheme {
 
 impl Default for LogColorScheme {
     /// Default color scheme
-    /// 
+    ///
+    /// - Trace: BrightBlack (gray)
     /// - Debug: Cyan
     /// - Info: Green
     /// - Warn: Yellow
@@ -200,6 +222,7 @@ impl Default for LogColorScheme {
     /// - Critical: BrightRed
     fn default() -> Self {
         LogColorScheme {
+            trace: Color::BrightBlack,
             debug: Color::Cyan,
             info: Color::Green,
             warn: Color::Yellow,
@@ -211,8 +234,16 @@ impl Default for LogColorScheme {
 
 impl LogColorScheme {
     /// Create a new color scheme
-    pub fn new(debug: Color, info: Color, warn: Color, error: Color, critical: Color) -> Self {
+    pub fn new(
+        trace: Color,
+        debug: Color,
+        info: Color,
+        warn: Color,
+        error: Color,
+        critical: Color,
+    ) -> Self {
         LogColorScheme {
+            trace,
             debug,
             info,
             warn,
@@ -224,6 +255,7 @@ impl LogColorScheme {
     /// Get color for a log level
     pub fn get_color(&self, level: crate::level::LogLevel) -> Color {
         match level {
+            crate::level::LogLevel::Trace => self.trace,
             crate::level::LogLevel::Debug => self.debug,
             crate::level::LogLevel::Info => self.info,
             crate::level::LogLevel::Warn => self.warn,

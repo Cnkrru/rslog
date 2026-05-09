@@ -2,6 +2,7 @@
 //! 
 //! Handles log message formatting with support for multiple output formats.
 
+use std::fmt::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::level::LogLevel;
@@ -29,14 +30,18 @@ pub enum OutputFormat {
 }
 
 /// Log formatter
-/// 
+///
 /// Handles formatting log messages into the specified output format.
-/// 
+///
+/// This type is not re-exported at the crate root to avoid conflict with
+/// `std::fmt::Formatter`. Use `rslog::formatter::Formatter` instead.
+///
 /// # Examples
-/// 
+///
 /// ```rust
-/// use rslog::{Formatter, OutputFormat, LogLevel};
-/// 
+/// use rslog::{OutputFormat, LogLevel};
+/// use rslog::formatter::Formatter;
+///
 /// let formatter = Formatter::with_format(OutputFormat::Text);
 /// let line = formatter.format(LogLevel::Info, "Hello, world!");
 /// println!("{}", line);
@@ -81,11 +86,12 @@ impl Formatter {
     /// | `%n` | Newline | `\n` |
     /// 
     /// # Examples
-    /// 
+    ///
     /// ```rust
-    /// use rslog::{Formatter, LogLevel};
-    /// 
-    /// let formatter = Formatter::with_pattern("%D %T [%P] %m");
+    /// use rslog::LogLevel;
+    /// use rslog::formatter::Formatter;
+    ///
+    /// let formatter = Formatter::with_pattern("%D %T [%P] %m".to_string());
     /// let line = formatter.format(LogLevel::Info, "Hello");
     /// // Output: 2026-05-09 10:30:45.123456789 [I] Hello
     /// ```
@@ -123,13 +129,32 @@ impl Formatter {
         )
     }
 
+    /// Escape a string for JSON output
+    pub fn escape_json(s: &str) -> String {
+        let mut result = String::with_capacity(s.len());
+        for c in s.chars() {
+            match c {
+                '"' => result.push_str("\\\""),
+                '\\' => result.push_str("\\\\"),
+                '\n' => result.push_str("\\n"),
+                '\r' => result.push_str("\\r"),
+                '\t' => result.push_str("\\t"),
+                c if c.is_control() => {
+                    write!(result, "\\u{:04x}", c as u32).unwrap();
+                }
+                c => result.push(c),
+            }
+        }
+        result
+    }
+
     /// Format as JSON
     fn format_json(&self, level: LogLevel, message: &str) -> String {
         format!(
             r#"{{"time":"{}","level":"{}","message":"{}"}}"#,
             Self::get_timestamp(),
-            level,
-            message
+            Self::escape_json(&level.to_string()),
+            Self::escape_json(message),
         )
     }
 

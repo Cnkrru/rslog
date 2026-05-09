@@ -19,6 +19,7 @@ fn main() {
     // Test 2: Custom color scheme
     println!("\n--- Test 2: Custom color scheme ---");
     let custom_scheme = LogColorScheme::new(
+        Color::BrightBlack,    // Trace
         Color::BrightCyan,    // Debug
         Color::BrightGreen,   // Info
         Color::BrightYellow,  // Warn

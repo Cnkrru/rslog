@@ -6,18 +6,19 @@ use crate::formatter::OutputFormat;
 use crate::level::LogLevel;
 use crate::rotator::RotatorConfig;
 use crate::color::LogColorScheme;
+use crate::filter::LogFilter;
 
 /// Logging library configuration structure
-/// 
+///
 /// Allows users to customize logging behavior including log level, output path, console output, etc.
-/// 
+///
 /// Use [`ConfigBuilder`] for easier configuration building.
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust
 /// use rslog::{Config, LogLevel, OutputFormat};
-/// 
+///
 /// let config = Config {
 ///     log_dir: "logs".to_string(),
 ///     file_prefix: "app_".to_string(),
@@ -27,7 +28,8 @@ use crate::color::LogColorScheme;
 ///     output_format: OutputFormat::Text,
 ///     rotation: None,
 ///     console_colors: true,
-///     color_scheme: LogColorScheme::default(),
+///     color_scheme: rslog::LogColorScheme::default(),
+///     filter: rslog::LogFilter::default(),
 /// };
 /// ```
 #[derive(Debug, Clone)]
@@ -50,16 +52,18 @@ pub struct Config {
     pub console_colors: bool,
     /// Color scheme for console output
     pub color_scheme: LogColorScheme,
+    /// Log filter (per-module level overrides)
+    pub filter: LogFilter,
 }
 
 impl Default for Config {
     /// Default configuration
-    /// 
+    ///
     /// ```rust
     /// use rslog::Config;
-    /// 
+    ///
     /// let config = Config::default();
-    /// 
+    ///
     /// assert_eq!(config.log_dir, "logs");
     /// assert_eq!(config.file_prefix, "serial_");
     /// assert_eq!(config.file_extension, ".log");
@@ -76,18 +80,19 @@ impl Default for Config {
             rotation: Some(RotatorConfig::default()),
             console_colors: true,
             color_scheme: LogColorScheme::default(),
+            filter: LogFilter::default(),
         }
     }
 }
 
 impl Config {
     /// Create a new configuration builder
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust
     /// use rslog::Config;
-    /// 
+    ///
     /// let config = Config::builder()
     ///     .log_dir("my_logs")
     ///     .level(rslog::LogLevel::Info)
@@ -98,21 +103,21 @@ impl Config {
     }
 
     /// Get the full log file path
-    /// 
+    ///
     /// Format: `{log_dir}/{file_prefix}{date}{file_extension}`
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust
     /// use rslog::{Config, LogLevel};
-    /// 
+    ///
     /// let config = Config {
     ///     log_dir: "logs".to_string(),
     ///     file_prefix: "app_".to_string(),
     ///     file_extension: ".log".to_string(),
     ///     ..Default::default()
     /// };
-    /// 
+    ///
     /// let path = config.get_log_file_path();
     /// assert!(path.starts_with("logs/app_"));
     /// assert!(path.ends_with(".log"));
@@ -129,14 +134,14 @@ impl Config {
 }
 
 /// Configuration builder
-/// 
+///
 /// Provides a fluent interface for building configurations.
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust
 /// use rslog::{ConfigBuilder, LogLevel, OutputFormat};
-/// 
+///
 /// let config = ConfigBuilder::new()
 ///     .log_dir("logs")
 ///     .file_prefix("app_")
@@ -151,9 +156,10 @@ pub struct ConfigBuilder {
     console_enabled: Option<bool>,
     level: Option<LogLevel>,
     output_format: Option<OutputFormat>,
-    rotation: Option<RotatorConfig>,
+    rotation: Option<Option<RotatorConfig>>,
     console_colors: Option<bool>,
     color_scheme: Option<LogColorScheme>,
+    filter: Option<LogFilter>,
 }
 
 impl ConfigBuilder {
@@ -169,13 +175,14 @@ impl ConfigBuilder {
             rotation: None,
             console_colors: None,
             color_scheme: None,
+            filter: None,
         }
     }
 
     /// Set the log directory
-    /// 
+    ///
     /// # Parameters
-    /// 
+    ///
     /// * `dir` - Log directory path
     pub fn log_dir(mut self, dir: &str) -> Self {
         self.log_dir = Some(dir.to_string());
@@ -183,9 +190,9 @@ impl ConfigBuilder {
     }
 
     /// Set the log file prefix
-    /// 
+    ///
     /// # Parameters
-    /// 
+    ///
     /// * `prefix` - Log file prefix
     pub fn file_prefix(mut self, prefix: &str) -> Self {
         self.file_prefix = Some(prefix.to_string());
@@ -193,9 +200,9 @@ impl ConfigBuilder {
     }
 
     /// Set the log file extension
-    /// 
+    ///
     /// # Parameters
-    /// 
+    ///
     /// * `ext` - Log file extension (including the dot)
     pub fn file_extension(mut self, ext: &str) -> Self {
         self.file_extension = Some(ext.to_string());
@@ -203,9 +210,9 @@ impl ConfigBuilder {
     }
 
     /// Set whether console output is enabled
-    /// 
+    ///
     /// # Parameters
-    /// 
+    ///
     /// * `enabled` - true to enable, false to disable
     pub fn console_enabled(mut self, enabled: bool) -> Self {
         self.console_enabled = Some(enabled);
@@ -213,9 +220,9 @@ impl ConfigBuilder {
     }
 
     /// Set the log level
-    /// 
+    ///
     /// # Parameters
-    /// 
+    ///
     /// * `level` - Log level
     pub fn level(mut self, level: LogLevel) -> Self {
         self.level = Some(level);
@@ -223,9 +230,9 @@ impl ConfigBuilder {
     }
 
     /// Set the output format
-    /// 
+    ///
     /// # Parameters
-    /// 
+    ///
     /// * `format` - Output format
     pub fn output_format(mut self, format: OutputFormat) -> Self {
         self.output_format = Some(format);
@@ -234,30 +241,30 @@ impl ConfigBuilder {
 
     /// Enable log rotation with default configuration
     pub fn enable_rotation(mut self) -> Self {
-        self.rotation = Some(RotatorConfig::default());
+        self.rotation = Some(Some(RotatorConfig::default()));
         self
     }
 
     /// Set log rotation configuration
-    /// 
+    ///
     /// # Parameters
-    /// 
+    ///
     /// * `config` - Rotation configuration
     pub fn rotation(mut self, config: RotatorConfig) -> Self {
-        self.rotation = Some(config);
+        self.rotation = Some(Some(config));
         self
     }
 
     /// Disable log rotation
     pub fn disable_rotation(mut self) -> Self {
-        self.rotation = None;
+        self.rotation = Some(None);
         self
     }
 
     /// Enable or disable console colors
-    /// 
+    ///
     /// # Parameters
-    /// 
+    ///
     /// * `enabled` - true to enable colors, false to disable
     pub fn console_colors(mut self, enabled: bool) -> Self {
         self.console_colors = Some(enabled);
@@ -265,17 +272,27 @@ impl ConfigBuilder {
     }
 
     /// Set custom color scheme
-    /// 
+    ///
     /// # Parameters
-    /// 
+    ///
     /// * `scheme` - Color scheme
     pub fn color_scheme(mut self, scheme: LogColorScheme) -> Self {
         self.color_scheme = Some(scheme);
         self
     }
 
+    /// Set a log filter for per-module level overrides
+    ///
+    /// # Parameters
+    ///
+    /// * `filter` - Log filter configuration
+    pub fn filter(mut self, filter: LogFilter) -> Self {
+        self.filter = Some(filter);
+        self
+    }
+
     /// Build the final configuration
-    /// 
+    ///
     /// Returns a complete [`Config`] instance.
     pub fn build(self) -> Config {
         Config {
@@ -285,9 +302,11 @@ impl ConfigBuilder {
             console_enabled: self.console_enabled.unwrap_or(true),
             level: self.level.unwrap_or(LogLevel::Debug),
             output_format: self.output_format.unwrap_or(OutputFormat::Text),
-            rotation: self.rotation.or_else(|| Some(RotatorConfig::default())),
+            rotation: self.rotation
+                .unwrap_or_else(|| Some(RotatorConfig::default())),
             console_colors: self.console_colors.unwrap_or(true),
             color_scheme: self.color_scheme.unwrap_or_default(),
+            filter: self.filter.unwrap_or_default(),
         }
     }
 }
