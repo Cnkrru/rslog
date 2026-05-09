@@ -1,0 +1,22 @@
+# Compilation artifacts
+target/
+
+# Log files
+logs/
+
+# Cargo lock file (optional, but often committed)
+# Cargo.lock
+
+# Editor directories
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+doc/

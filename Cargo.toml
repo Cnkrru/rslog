@@ -1,0 +1,14 @@
+[package]
+name = "rslog"
+version = "0.1.0"
+edition = "2021"
+description = "A lightweight logging library for Rust built entirely using the standard library with zero external dependencies."
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/Cnkrru/rslog"
+documentation = "https://docs.rs/rslog"
+keywords = ["logging", "log", "logger", "simple", "zero-dependency"]
+categories = ["development-tools::debugging", "logging"]
+authors = ["Cnkrru <3253884026@qq.com>"]
+
+[dependencies]
