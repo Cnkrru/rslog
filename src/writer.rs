@@ -138,7 +138,7 @@ impl Writer {
             format => Formatter::with_format(format.clone()),
         };
 
-        let color_formatter = ColorFormatter::with_scheme(config.color_scheme.clone());
+        let mut color_formatter = ColorFormatter::with_scheme(config.color_scheme.clone());
         color_formatter.set_enabled(config.console_colors);
 
         Writer {
