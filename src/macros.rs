@@ -11,6 +11,7 @@
 //! | `max_level_info` | `trace!`, `debug!` |
 //! | `max_level_warn` | `trace!`, `debug!`, `info!` |
 //! | `max_level_error` | `trace!`, `debug!`, `info!`, `warn!` |
+//! | `max_level_critical` | `trace!`, `debug!`, `info!`, `warn!`, `error!` |
 //! | `max_level_off` | all macros |
 //!
 //! When a macro is stripped, its arguments are **not evaluated** at all —
@@ -28,66 +29,51 @@
 
 // ---- compile-time level gate helpers ----
 //
-// Each level feature implies all higher levels.
-// trace is level 0, critical is level 4, off is level 5.
-
-// Use cfg-based helper macros so that the `format!()` arg isn't even tokenized
-// when the level is disabled.
+// These use $crate::MAX_LEVEL (a const resolved from the library's Cargo features)
+// rather than cfg!(feature = ...) to ensure the correct feature set is used
+// regardless of the calling crate's feature configuration.
 
 /// Internal: true when trace level is enabled at compile time
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _log_enabled_trace {
-    () => { cfg!(feature = "max_level_trace") };
+    () => { $crate::MAX_LEVEL <= 0 };
 }
 
 /// Internal: true when debug level is enabled at compile time
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _log_enabled_debug {
-    () => { cfg!(any(
-        feature = "max_level_trace",
-        feature = "max_level_debug",
-    )) };
+    () => { $crate::MAX_LEVEL <= 1 };
 }
 
 /// Internal: true when info level is enabled at compile time
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _log_enabled_info {
-    () => { cfg!(any(
-        feature = "max_level_trace",
-        feature = "max_level_debug",
-        feature = "max_level_info",
-    )) };
+    () => { $crate::MAX_LEVEL <= 2 };
 }
 
 /// Internal: true when warn level is enabled at compile time
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _log_enabled_warn {
-    () => { cfg!(any(
-        feature = "max_level_trace",
-        feature = "max_level_debug",
-        feature = "max_level_info",
-        feature = "max_level_warn",
-    )) };
+    () => { $crate::MAX_LEVEL <= 3 };
 }
 
 /// Internal: true when error level is enabled at compile time
 #[doc(hidden)]
 #[macro_export]
 macro_rules! _log_enabled_error {
-    () => { cfg!(any(
-        feature = "max_level_trace",
-        feature = "max_level_debug",
-        feature = "max_level_info",
-        feature = "max_level_warn",
-        feature = "max_level_error",
-    )) };
+    () => { $crate::MAX_LEVEL <= 4 };
 }
 
-// critical is never stripped (unless max_level_off, handled separately)
+/// Internal: true when critical level is enabled at compile time
+#[doc(hidden)]
+#[macro_export]
+macro_rules! _log_enabled_critical {
+    () => { $crate::MAX_LEVEL <= 5 };
+}
 
 /// Log a trace message with format string and automatic target (module path).
 ///
@@ -202,7 +188,7 @@ macro_rules! error {
 #[macro_export]
 macro_rules! critical {
     ($($arg:tt)*) => {{
-        if cfg!(not(feature = "max_level_off")) {
+        if $crate::_log_enabled_critical!() {
             let logger = $crate::Logger::get_instance();
             logger.critical_target(module_path!(), &format!($($arg)*));
         }

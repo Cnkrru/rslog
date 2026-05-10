@@ -15,6 +15,11 @@ use crate::formatter::{Formatter, OutputFormat};
 use crate::color::ColorFormatter;
 use crate::rotator::{Rotator, RotatorConfig};
 
+/// Flush signal
+///
+/// Used to request the writer thread to flush buffered entries to disk.
+struct FlushSignal;
+
 /// Log entry
 ///
 /// Represents a single log record to be written.
@@ -103,13 +108,27 @@ fn get_timestamp() -> String {
 /// writer.write(rslog::LogLevel::Info, "Hello, world!");
 /// ```
 pub struct Writer {
-    sender: Sender<LogEntry>,
+    sender: Mutex<Option<Sender<LogEntry>>>,
+    flush_sender: Mutex<Option<Sender<FlushSignal>>>,
     is_running: Arc<Mutex<bool>>,
+    handle: Mutex<Option<thread::JoinHandle<()>>>,
     formatter: Formatter,
     color_formatter: ColorFormatter,
     config: Config,
     console_enabled: Mutex<bool>,
     output_format: OutputFormat,
+}
+
+impl Drop for Writer {
+    fn drop(&mut self) {
+        *self.is_running.lock().unwrap() = false;
+        self.flush();
+        self.sender.lock().unwrap().take();
+        self.flush_sender.lock().unwrap().take();
+        if let Some(handle) = self.handle.lock().unwrap().take() {
+            let _ = handle.join();
+        }
+    }
 }
 
 impl Writer {
@@ -120,6 +139,7 @@ impl Writer {
     /// * `config` - Logger configuration
     pub fn new(config: Config) -> Self {
         let (sender, receiver) = channel::<LogEntry>();
+        let (flush_sender, flush_receiver) = channel::<FlushSignal>();
         let is_running = Arc::new(Mutex::new(true));
         let running_clone = Arc::clone(&is_running);
         let file_path = config.get_log_file_path();
@@ -129,8 +149,8 @@ impl Writer {
         let rotation = config.rotation.clone();
         let output_format = config.output_format.clone();
 
-        thread::spawn(move || {
-            Self::writer_thread(receiver, &file_path, batch_size, max_wait_ms, &running_clone, rotation);
+        let handle = thread::spawn(move || {
+            Self::writer_thread(receiver, flush_receiver, &file_path, batch_size, max_wait_ms, &running_clone, rotation);
         });
 
         let formatter = match &config.output_format {
@@ -142,8 +162,10 @@ impl Writer {
         color_formatter.set_enabled(config.console_colors);
 
         Writer {
-            sender,
+            sender: Mutex::new(Some(sender)),
+            flush_sender: Mutex::new(Some(flush_sender)),
             is_running,
+            handle: Mutex::new(Some(handle)),
             formatter,
             color_formatter,
             config,
@@ -158,10 +180,11 @@ impl Writer {
     /// Supports log rotation when a `RotatorConfig` is provided.
     fn writer_thread(
         receiver: Receiver<LogEntry>,
+        flush_receiver: Receiver<FlushSignal>,
         file_path: &str,
         batch_size: usize,
         max_wait_ms: u64,
-        is_running: &Arc<Mutex<bool>>,
+        _is_running: &Arc<Mutex<bool>>,
         rotation: Option<RotatorConfig>,
     ) {
         let path = PathBuf::from(file_path);
@@ -190,26 +213,31 @@ impl Writer {
 
         let mut buffer: Vec<LogEntry> = Vec::with_capacity(batch_size);
 
-        while *is_running.lock().unwrap() {
+        loop {
+            // Check flush channel first (non-blocking)
+            if let Ok(_) = flush_receiver.try_recv() {
+                if !buffer.is_empty() {
+                    Self::flush_buffer(&mut buffer, &mut file, &rotator, &path);
+                }
+            }
+
             match receiver.recv_timeout(Duration::from_millis(max_wait_ms)) {
                 Ok(entry) => {
-                    // Skip empty entries (flush/wake signals)
-                    if entry.level.is_empty() && entry.message.is_empty() {
-                        if !buffer.is_empty() {
-                            Self::flush_buffer(&mut buffer, &mut file, &rotator, &path);
-                        }
-                        continue;
-                    }
                     buffer.push(entry);
                     if buffer.len() >= batch_size {
                         Self::flush_buffer(&mut buffer, &mut file, &rotator, &path);
                     }
                 }
-                Err(_) => {
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
                     if !buffer.is_empty() {
                         Self::flush_buffer(&mut buffer, &mut file, &rotator, &path);
                     }
-                    // Periodically check rotation even when idle
+                    break;
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                    if !buffer.is_empty() {
+                        Self::flush_buffer(&mut buffer, &mut file, &rotator, &path);
+                    }
                     if let Some(ref r) = rotator {
                         if last_rotation_check.elapsed() >= rotation_check_interval {
                             if let Ok(true) = r.needs_rotation() {
@@ -303,7 +331,9 @@ impl Writer {
         }
 
         let entry = LogEntry::new(&level.to_string(), message, &timestamp, self.output_format.clone());
-        let _ = self.sender.send(entry);
+        if let Some(ref sender) = *self.sender.lock().unwrap() {
+            let _ = sender.send(entry);
+        }
     }
 
     /// Set whether console output is enabled
@@ -332,19 +362,21 @@ impl Writer {
     /// Flush pending log entries
     ///
     /// Sends a signal to the writer thread to flush buffered entries to disk.
-    /// Blocks until the flush is complete (up to max_wait_ms).
     pub fn flush(&self) {
-        let entry = LogEntry::new("", "", "", self.output_format.clone());
-        let _ = self.sender.send(entry);
+        if let Some(ref sender) = *self.flush_sender.lock().unwrap() {
+            let _ = sender.send(FlushSignal);
+        }
     }
 
     /// Stop the writer
     ///
     /// Stops the background thread and flushes remaining logs.
     pub fn stop(&self) {
-        *self.is_running.lock().unwrap() = false;
-        // Send a dummy entry to wake up the receiver immediately
-        let entry = LogEntry::new("", "", "", self.output_format.clone());
-        let _ = self.sender.send(entry);
+        self.flush();
+        self.sender.lock().unwrap().take();
+        self.flush_sender.lock().unwrap().take();
+        if let Some(handle) = self.handle.lock().unwrap().take() {
+            let _ = handle.join();
+        }
     }
 }

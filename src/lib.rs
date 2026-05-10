@@ -1,3 +1,4 @@
+#![allow(unexpected_cfgs)]
 //! # rslog
 //!
 //! A lightweight logging library for Rust built entirely using the standard library with zero external dependencies.
@@ -83,6 +84,35 @@
 //!
 //! Logger::init_with_config(config);
 //! ```
+
+/// Compile-time maximum log level (resolved from crate features).
+///
+/// Used by macros to decide at compile time whether to emit or strip a log call.
+///
+/// | Value | Meaning |
+/// |-------|---------|
+/// | 0     | TRACE and above enabled (default) |
+/// | 1     | DEBUG and above enabled |
+/// | 2     | INFO and above enabled |
+/// | 3     | WARN and above enabled |
+/// | 4     | ERROR and above enabled |
+/// | 5     | CRITICAL only |
+/// | 6     | All macros stripped (`max_level_off`) |
+pub const MAX_LEVEL: u8 = if cfg!(feature = "max_level_off") {
+    6
+} else if cfg!(feature = "max_level_critical") {
+    5
+} else if cfg!(feature = "max_level_error") {
+    4
+} else if cfg!(feature = "max_level_warn") {
+    3
+} else if cfg!(feature = "max_level_info") {
+    2
+} else if cfg!(feature = "max_level_debug") {
+    1
+} else {
+    0
+};
 
 pub mod level;
 pub mod formatter;

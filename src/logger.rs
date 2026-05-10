@@ -177,9 +177,17 @@ impl Logger {
     /// Flush pending log entries to disk
     ///
     /// Forces the writer thread to flush buffered entries to file.
-    /// Useful before program exit or when log durability is critical.
+    /// Doesn't block — the flush happens asynchronously.
     pub fn flush(&self) {
         self.writer.flush();
+    }
+
+    /// Stop the logger's background writer thread
+    ///
+    /// Flushes all remaining log entries and waits for the writer thread to finish.
+    /// Should be called before the program exits to ensure all logs are persisted.
+    pub fn stop(&self) {
+        self.writer.stop();
     }
 
     /// Log a trace message
